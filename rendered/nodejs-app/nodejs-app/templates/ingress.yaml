@@ -1,0 +1,28 @@
+---
+# Source: nodejs-app/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nodejs-app
+  namespace: api
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/subnets: subnet-089a938d1734752a9, subnet-01887dd5f48138636, subnet-03b08886c41a2e27c
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-southeast-1:688567278489:certificate/ec17e461-0f3f-4aaf-bb51-b9509c00a093
+spec:
+  ingressClassName: alb
+  rules:
+    -
+      host: app.anjankumarpaul.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nodejs-app
+                port:
+                  number: 80

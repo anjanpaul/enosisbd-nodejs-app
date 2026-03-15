@@ -50,7 +50,7 @@ ingress:
 
 # HPA
 autoscaling:
-  enabled: false
+  enabled: true
   minReplicas: 2
   maxReplicas: 6
   targetCPU: 70
