@@ -54,7 +54,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           helm upgrade --install $HELM_RELEASE helm/nodejs-app \
-            -f helm/nodejs-app/values-prod.yaml \
+            -f helm/nodejs-app/values.yaml \
             --set image.tag=$IMAGE_TAG \
             --set image.repository=$ECR_REGISTRY/$ECR_REPOSITORY \
             -n $APP_NAMESPACE \
