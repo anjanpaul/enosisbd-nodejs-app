@@ -1,0 +1,67 @@
+name: Build and Deploy to EKS
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v1.0.0)'
+        required: true
+
+env:
+  AWS_REGION: ap-southeast-1
+  ECR_REPOSITORY: nodejs-app
+  EKS_CLUSTER: enosisbd-prod-cluster
+  APP_NAMESPACE: api
+  HELM_RELEASE: nodejs-app
+
+jobs:
+  build-and-deploy:
+    name: Build, Push & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and Push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.event.inputs.version }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig \
+            --name $EKS_CLUSTER \
+            --region $AWS_REGION
+
+      - name: Deploy with Helm
+        env:
+          IMAGE_TAG: ${{ github.event.inputs.version }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          helm upgrade --install $HELM_RELEASE helm/nodejs-app \
+            -f helm/nodejs-app/values-prod.yaml \
+            --set image.tag=$IMAGE_TAG \
+            --set image.repository=$ECR_REGISTRY/$ECR_REPOSITORY \
+            -n $APP_NAMESPACE \
+            --wait --timeout 120s
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n $APP_NAMESPACE -l app=nodejs-app
+          kubectl rollout status deployment/nodejs-app -n $APP_NAMESPACE --timeout=60s
+          echo "Deployed version: ${{ github.event.inputs.version }}"
